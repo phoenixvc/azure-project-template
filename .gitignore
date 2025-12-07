@@ -107,6 +107,10 @@ build/
 # OS Files
 # =============================================================================
 .DS_Store
+.coverage
+coverage.xml
+htmlcov/
+.pytest_cache/
 .DS_Store?
 ._*
 .Spotlight-V100
