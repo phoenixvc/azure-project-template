@@ -17,7 +17,7 @@ on:
           - all
 
 env:
-  AZURE_RESOURCE_GROUP: rg-phoenix-platform
+  AZURE_RESOURCE_GROUP: pvc-prod-rg-gitcreate-app
   AZURE_LOCATION: westeurope
 
 jobs:
