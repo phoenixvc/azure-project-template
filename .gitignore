@@ -4,3 +4,7 @@ node_modules/
 .vscode/
 *.log
 .DS_Store
+.coverage
+coverage.xml
+htmlcov/
+.pytest_cache/
