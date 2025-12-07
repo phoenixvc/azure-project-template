@@ -117,7 +117,7 @@ export default (app: Probot) => {
 
     // Check if created from our template
     const isFromTemplate =
-      repository.template_repository?.name === TEMPLATE_REPO;
+      (repository as any).template_repository?.name === TEMPLATE_REPO;
 
     if (!isFromTemplate) {
       app.log.info("Not created from template, ignoring");
