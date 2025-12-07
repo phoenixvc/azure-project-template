@@ -1,0 +1,24 @@
+# {{PROJECT}}
+
+**Organization**: {{ORG}}  
+**Environment**: {{ENV}}  
+**Tech Stack**: {{TECHSTACK}}
+
+## Quick Start
+
+```bash
+cp .env.example .env
+# Edit .env with your values
+```
+
+## Deployment
+
+```bash
+az deployment group create \
+  --resource-group {{ORG}}-{{ENV}}-{{PROJECT}}-weu-rg \
+  --template-file infra/main.bicep \
+  --parameters infra/parameters/{{ENV}}.bicepparam
+```
+
+---
+Generated from [azure-project-template](https://github.com/phoenixvc/azure-project-template)

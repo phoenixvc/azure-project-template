@@ -1,0 +1,10 @@
+{
+  "name": "{{PROJECT}}",
+  "organization": "{{ORG}}",
+  "environment": "{{ENV}}",
+  "techStack": "{{TECHSTACK}}",
+  "azure": {
+    "region": "westeurope",
+    "resourceGroup": "{{ORG}}-{{ENV}}-{{PROJECT}}-weu-rg"
+  }
+}
