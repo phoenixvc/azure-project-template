@@ -1,0 +1,217 @@
+name: Deploy Platform Services
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'platform/**'
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 'Service to deploy'
+        required: true
+        type: choice
+        options:
+          - github-app
+          - web-portal
+          - all
+
+env:
+  AZURE_RESOURCE_GROUP: rg-phoenix-platform
+  AZURE_LOCATION: westeurope
+
+jobs:
+  # ===========================================================================
+  # Deploy GitHub App to Azure App Service
+  # ===========================================================================
+  deploy-github-app:
+    if: |
+      github.event_name == 'workflow_dispatch' &&
+      (inputs.service == 'github-app' || inputs.service == 'all') ||
+      github.event_name == 'push' &&
+      contains(github.event.head_commit.modified, 'platform/github-app')
+    runs-on: ubuntu-latest
+    environment: production
+
+    defaults:
+      run:
+        working-directory: platform/github-app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: platform/github-app/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.GITHUB_APP_NAME || 'phoenix-github-app' }}
+          package: platform/github-app
+
+      - name: Configure App Settings
+        run: |
+          az webapp config appsettings set \
+            --name ${{ vars.GITHUB_APP_NAME || 'phoenix-github-app' }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --settings \
+              NODE_ENV=production \
+              PORT=8080
+
+      - name: Deployment Summary
+        run: |
+          echo "## GitHub App Deployed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** https://${{ vars.GITHUB_APP_NAME || 'phoenix-github-app' }}.azurewebsites.net" >> $GITHUB_STEP_SUMMARY
+
+  # ===========================================================================
+  # Deploy Web Portal to Azure Static Web Apps
+  # ===========================================================================
+  deploy-web-portal:
+    if: |
+      github.event_name == 'workflow_dispatch' &&
+      (inputs.service == 'web-portal' || inputs.service == 'all') ||
+      github.event_name == 'push' &&
+      contains(github.event.head_commit.modified, 'platform/web-portal')
+    runs-on: ubuntu-latest
+    environment: production
+
+    defaults:
+      run:
+        working-directory: platform/web-portal
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: platform/web-portal/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+          TEMPLATE_OWNER: ${{ vars.TEMPLATE_OWNER || 'phoenixvc' }}
+          TEMPLATE_REPO: ${{ vars.TEMPLATE_REPO || 'azure-project-template' }}
+          TARGET_OWNER: ${{ vars.TARGET_OWNER || 'phoenixvc' }}
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # Option A: Deploy to Azure Static Web Apps
+      - name: Deploy to Static Web Apps
+        if: vars.USE_STATIC_WEB_APPS == 'true'
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: 'upload'
+          app_location: 'platform/web-portal'
+          output_location: '.next'
+          skip_app_build: true
+
+      # Option B: Deploy to Azure App Service
+      - name: Deploy to App Service
+        if: vars.USE_STATIC_WEB_APPS != 'true'
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.WEB_PORTAL_NAME || 'phoenix-web-portal' }}
+          package: platform/web-portal
+
+      - name: Deployment Summary
+        run: |
+          echo "## Web Portal Deployed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ vars.USE_STATIC_WEB_APPS }}" == "true" ]; then
+            echo "**Type:** Azure Static Web Apps" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**URL:** https://${{ vars.WEB_PORTAL_NAME || 'phoenix-web-portal' }}.azurewebsites.net" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # ===========================================================================
+  # Infrastructure Setup (Manual trigger only)
+  # ===========================================================================
+  setup-infrastructure:
+    if: github.event_name == 'workflow_dispatch' && inputs.service == 'all'
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Create Resource Group
+        run: |
+          az group create \
+            --name ${{ env.AZURE_RESOURCE_GROUP }} \
+            --location ${{ env.AZURE_LOCATION }} \
+            --tags purpose=platform managed-by=github-actions
+
+      - name: Create App Service Plan
+        run: |
+          az appservice plan create \
+            --name phoenix-platform-plan \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --sku B1 \
+            --is-linux
+
+      - name: Create GitHub App Web App
+        run: |
+          az webapp create \
+            --name ${{ vars.GITHUB_APP_NAME || 'phoenix-github-app' }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --plan phoenix-platform-plan \
+            --runtime "NODE:20-lts"
+
+      - name: Create Web Portal Web App
+        run: |
+          az webapp create \
+            --name ${{ vars.WEB_PORTAL_NAME || 'phoenix-web-portal' }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --plan phoenix-platform-plan \
+            --runtime "NODE:20-lts"
+
+      - name: Create Application Insights
+        run: |
+          az monitor app-insights component create \
+            --app phoenix-platform-insights \
+            --location ${{ env.AZURE_LOCATION }} \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }}
+
+      - name: Infrastructure Summary
+        run: |
+          echo "## Infrastructure Created" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Resource | Name |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Resource Group | ${{ env.AZURE_RESOURCE_GROUP }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| App Service Plan | phoenix-platform-plan |" >> $GITHUB_STEP_SUMMARY
+          echo "| GitHub App | ${{ vars.GITHUB_APP_NAME || 'phoenix-github-app' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Web Portal | ${{ vars.WEB_PORTAL_NAME || 'phoenix-web-portal' }} |" >> $GITHUB_STEP_SUMMARY
