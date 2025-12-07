@@ -173,3 +173,9 @@ docker-compose.override.yml
 *.bak
 *.swp
 *~
+
+# =============================================================================
+# Bicep
+# =============================================================================
+# Generated ARM templates from Bicep compilation
+infra/**/*.json

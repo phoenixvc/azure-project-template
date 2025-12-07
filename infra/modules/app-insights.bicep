@@ -16,7 +16,7 @@ param env string
 param tags object = {}
 
 var appInsightsName = '${namePrefix}-ai'
-var logAnalyticsName = '${namePrefix}-la'
+var logAnalyticsName = '${namePrefix}-logs'
 
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
   name: logAnalyticsName

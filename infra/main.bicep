@@ -38,9 +38,6 @@ param useContainerApps bool = false
 @description('Deploy Web frontend')
 param deployWeb bool = true
 
-@description('Deploy Azure Functions')
-param deployFunctions bool = false
-
 @description('Deploy PostgreSQL database')
 param deployDatabase bool = true
 
@@ -116,13 +113,8 @@ module keyVault 'modules/key-vault.bicep' = if (deployKeyVault) {
     location: location
     env: env
     tags: tags
-    accessPolicies: deployApi ? [
-      {
-        principalId: useContainerApps ? containerApp.outputs.principalId : appService.outputs.principalId
-      }
-    ] : []
+    accessPolicies: []
   }
-  dependsOn: deployApi ? (useContainerApps ? [containerApp] : [appService]) : []
 }
 
 // Storage Account
@@ -177,12 +169,9 @@ module appService 'modules/app-service.bicep' = if (deployApi && !useContainerAp
     env: env
     sku: appServiceSku
     tags: tags
-    appInsightsConnectionString: deployAppInsights ? appInsights.outputs.connectionString : ''
-    keyVaultUri: deployKeyVault ? keyVault.outputs.keyVaultUri : ''
+    appInsightsConnectionString: deployAppInsights ? appInsights.?outputs.?connectionString ?? '' : ''
+    keyVaultUri: deployKeyVault ? keyVault.?outputs.?keyVaultUri ?? '' : ''
   }
-  dependsOn: [
-    appInsights
-  ]
 }
 
 // Container App (modern)
@@ -195,11 +184,8 @@ module containerApp 'modules/container-app.bicep' = if (deployApi && useContaine
     env: env
     containerImage: containerImage
     tags: tags
-    appInsightsConnectionString: deployAppInsights ? appInsights.outputs.connectionString : ''
+    appInsightsConnectionString: deployAppInsights ? appInsights.?outputs.?connectionString ?? '' : ''
   }
-  dependsOn: [
-    appInsights
-  ]
 }
 
 // Web App Service (for frontend)
@@ -212,11 +198,18 @@ module webApp 'modules/app-service.bicep' = if (deployWeb) {
     env: env
     sku: appServiceSku
     tags: tags
-    appInsightsConnectionString: deployAppInsights ? appInsights.outputs.connectionString : ''
+    appInsightsConnectionString: deployAppInsights ? appInsights.?outputs.?connectionString ?? '' : ''
   }
-  dependsOn: [
-    appInsights
-  ]
+}
+
+// Grant API App access to Key Vault
+module keyVaultAccess 'modules/key-vault-role-assignment.bicep' = if (deployKeyVault && deployApi) {
+  scope: rg
+  name: 'keyVaultAccess-${uniqueString(rg.id)}'
+  params: {
+    keyVaultName: keyVault.?outputs.?keyVaultName ?? ''
+    principalId: useContainerApps ? (containerApp.?outputs.?principalId ?? '') : (appService.?outputs.?principalId ?? '')
+  }
 }
 
 // ============================================================================
@@ -227,19 +220,19 @@ output resourceGroupName string = rg.name
 output location string = location
 
 // API outputs
-output apiUrl string = deployApi ? (useContainerApps ? 'https://${containerApp.outputs.containerAppFqdn}' : 'https://${appService.outputs.appServiceHostname}') : ''
+output apiUrl string = deployApi ? (useContainerApps ? 'https://${containerApp.?outputs.?containerAppFqdn ?? ''}' : 'https://${appService.?outputs.?appServiceHostname ?? ''}') : ''
 
 // Web outputs
-output webUrl string = deployWeb ? 'https://${webApp.outputs.appServiceHostname}' : ''
+output webUrl string = deployWeb ? 'https://${webApp.?outputs.?appServiceHostname ?? ''}' : ''
 
 // Database outputs
-output databaseServer string = deployDatabase && databasePassword != '' ? postgres.outputs.serverFqdn : ''
+output databaseServer string = deployDatabase ? postgres.?outputs.?serverFqdn ?? '' : ''
 
 // Monitoring outputs
-output appInsightsConnectionString string = deployAppInsights ? appInsights.outputs.connectionString : ''
+output appInsightsConnectionString string = deployAppInsights ? appInsights.?outputs.?connectionString ?? '' : ''
 
 // Key Vault outputs
-output keyVaultUri string = deployKeyVault ? keyVault.outputs.keyVaultUri : ''
+output keyVaultUri string = deployKeyVault ? keyVault.?outputs.?keyVaultUri ?? '' : ''
 
 // Storage outputs
-output storageEndpoint string = deployStorage ? storage.outputs.primaryEndpoint : ''
+output storageEndpoint string = deployStorage ? storage.?outputs.?primaryEndpoint ?? '' : ''
