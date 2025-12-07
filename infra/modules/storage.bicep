@@ -22,7 +22,7 @@ param blobContainers array = []
 @description('Tags')
 param tags object = {}
 
-var storageAccountName = '${replace(namePrefix, '-', '')}st'
+var storageAccountName = '${replace(namePrefix, '-', '')}stor'
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   name: storageAccountName
@@ -70,4 +70,3 @@ resource containers 'Microsoft.Storage/storageAccounts/blobServices/containers@2
 output storageAccountId string = storageAccount.id
 output storageAccountName string = storageAccount.name
 output primaryEndpoint string = storageAccount.properties.primaryEndpoints.blob
-output connectionString string = 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'

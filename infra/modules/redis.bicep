@@ -51,4 +51,3 @@ output redisId string = redis.id
 output redisName string = redis.name
 output redisHostName string = redis.properties.hostName
 output redisPort int = redis.properties.sslPort
-output connectionString string = '${redis.properties.hostName}:${redis.properties.sslPort},password=${redis.listKeys().primaryKey},ssl=True,abortConnect=False'
