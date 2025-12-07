@@ -13,35 +13,35 @@ jobs:
   setup:
     if: github.event.repository.name != 'azure-project-template'
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-      
+
       - name: Parse repository name
         id: parse
         run: |
           REPO_NAME="${{ github.event.repository.name }}"
           echo "Full repo name: $REPO_NAME"
-          
+
           IFS='-' read -ra PARTS <<< "$REPO_NAME"
-          
+
           ORG="${PARTS[0]}"
           ENV="${PARTS[1]}"
           PROJECT="${PARTS[2]}"
           TECHSTACK="${PARTS[3]}"
-          
+
           echo "org=$ORG" >> $GITHUB_OUTPUT
           echo "env=$ENV" >> $GITHUB_OUTPUT
           echo "project=$PROJECT" >> $GITHUB_OUTPUT
           echo "techstack=$TECHSTACK" >> $GITHUB_OUTPUT
-      
+
       - name: Select tech stack template
         run: |
           TECHSTACK="${{ steps.parse.outputs.techstack }}"
-          
+
           if [ -d "templates/$TECHSTACK" ]; then
             echo "✓ Using tech stack: $TECHSTACK"
             cp -r templates/$TECHSTACK/* .
@@ -49,26 +49,60 @@ jobs:
             echo "⚠ Tech stack '$TECHSTACK' not found, using fastapi"
             cp -r templates/fastapi/* .
           fi
-          
+
           rm -rf templates/
-      
+
       - name: Process template files
         run: |
           ORG="${{ steps.parse.outputs.org }}"
           ENV="${{ steps.parse.outputs.env }}"
           PROJECT="${{ steps.parse.outputs.project }}"
           TECHSTACK="${{ steps.parse.outputs.techstack }}"
-          
+          RESOURCE_GROUP="${ORG}-${ENV}-${PROJECT}-weu-rg"
+
+          # Process .template files
           find . -name "*.template" -type f | while read file; do
             output="${file%.template}"
             sed -e "s/{{ORG}}/$ORG/g" \
                 -e "s/{{ENV}}/$ENV/g" \
                 -e "s/{{PROJECT}}/$PROJECT/g" \
                 -e "s/{{TECHSTACK}}/$TECHSTACK/g" \
+                -e "s/{{RESOURCE_GROUP}}/$RESOURCE_GROUP/g" \
                 "$file" > "$output"
             rm "$file"
           done
-      
+
+          # Replace placeholders in ALL text files
+          find . -type f \( \
+            -name "*.py" -o \
+            -name "*.cs" -o \
+            -name "*.js" -o \
+            -name "*.ts" -o \
+            -name "*.tsx" -o \
+            -name "*.jsx" -o \
+            -name "*.go" -o \
+            -name "*.dart" -o \
+            -name "*.java" -o \
+            -name "*.bicepparam" -o \
+            -name "*.bicep" -o \
+            -name "*.json" -o \
+            -name "*.md" -o \
+            -name "*.yml" -o \
+            -name "*.yaml" -o \
+            -name "*.env*" -o \
+            -name "*.txt" -o \
+            -name "*.toml" -o \
+            -name "*.ini" -o \
+            -name "*.conf" -o \
+            -name "Dockerfile*" \
+          \) -exec sed -i \
+            -e "s/{{ORG}}/$ORG/g" \
+            -e "s/{{ENV}}/$ENV/g" \
+            -e "s/{{PROJECT}}/$PROJECT/g" \
+            -e "s/{{TECHSTACK}}/$TECHSTACK/g" \
+            -e "s/{{RESOURCE_GROUP}}/$RESOURCE_GROUP/g" \
+            {} +
+
       - name: Rename project-specific files
         run: |
           PROJECT="${{ steps.parse.outputs.project }}"
@@ -76,14 +110,14 @@ jobs:
             newname=$(echo "$file" | sed "s/{{PROJECT}}/$PROJECT/g")
             mv "$file" "$newname"
           done
-      
+
       - name: Commit changes
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add .
           git diff --staged --quiet || git commit -m "chore: Configure from template"
-      
+
       - name: Push changes
         uses: ad-m/github-push-action@master
         with:
