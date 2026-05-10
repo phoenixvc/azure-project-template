@@ -2,6 +2,7 @@
   "name": "phoenix-project-initializer",
   "version": "1.0.0",
   "description": "GitHub App to automate project initialization from azure-project-template",
+  "packageManager": "pnpm@9.15.4",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
