@@ -1,0 +1,20 @@
+version: "1.0"
+scope: roadmap
+repo: phoenixvc/azure-project-template
+updated_at: 2026-03-18
+
+tasks:
+  - id: sync-with-org-meta-infra
+    title: "Sync azure-project-template with org-meta/infra/ modules"
+    description: "org-meta now contains migrated Bicep/Terraform from azure-infrastructure. Ensure azure-project-template references or extends those modules rather than duplicating them."
+    priority: medium
+    status: todo
+    quarter: "2026-Q2"
+    tags: [infrastructure, bicep, terraform, org-meta]
+
+  - id: consolidation-decision
+    title: "Final decision: standalone template repo or fold into org-meta"
+    priority: low
+    status: todo
+    quarter: "2026-Q3"
+    tags: [housekeeping, strategy]

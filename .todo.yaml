@@ -1,0 +1,12 @@
+version: "1.0"
+scope: todo
+repo: phoenixvc/azure-project-template
+updated_at: 2026-03-18
+
+tasks:
+  - id: decide-template-vs-org-meta
+    title: "Decide: keep as standalone GitHub template or migrate into org-meta/infra/"
+    description: "Currently active as a reusable Azure scaffolding template. If it's mostly generic standards with no phoenixvc-specific logic, could live in org-meta. If it's valuable as a standalone template repo (GitHub 'Use this template' button), keep separate."
+    priority: medium
+    status: todo
+    tags: [housekeeping, strategy, org-meta]
